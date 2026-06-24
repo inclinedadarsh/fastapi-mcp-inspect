@@ -1,0 +1,17 @@
+[project]
+name = "fastapi-mcp-inspect"
+version = "0.1.0"
+description = "Simple tool which mounts your fastapi application and exposes an mcp endpoint for AI agents to inspect your fastapi server."
+readme = "README.md"
+authors = [
+    { name = "Adarsh Dubey", email = "dubeyadarshmain@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+fastapi-mcp-inspect = "fastapi_mcp_inspect:main"
+
+[build-system]
+requires = ["uv_build>=0.11.16,<0.12.0"]
+build-backend = "uv_build"
