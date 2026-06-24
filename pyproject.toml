@@ -15,3 +15,27 @@ fastapi-mcp-inspect = "fastapi_mcp_inspect:main"
 [build-system]
 requires = ["uv_build>=0.11.16,<0.12.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+    "ruff>=0.15.19",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+lint.select = [
+  "E",
+  "F",
+  "W",
+  "I",
+  "UP",
+  "B",
+  "SIM",
+  "C4",
+  "TCH"
+]
+
+lint.ignore = ["B008"]
