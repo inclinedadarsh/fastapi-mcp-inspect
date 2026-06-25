@@ -281,16 +281,29 @@ class FastAPIInspect:
             return "\n".join(lines)
 
         @self.mcp.tool()
-        async def search_routes(query: str, method: str | None = None) -> str:
+        async def search_routes(
+            query: str,
+            method: str | None = None,
+            search_in_summary: bool = False,
+        ) -> str:
             """Search for routes by path and optionally filter by HTTP method.
 
             Args:
                 query: Substring to match against route paths (case-insensitive).
                 method: Optional HTTP method filter (e.g. GET, POST).
+                search_in_summary: When True, also search in endpoint summaries
+                    and descriptions.
             """
             route_map: dict[str, tuple[set[str], APIRoute]] = {}
             for path, methods, route in _get_api_routes(self.app):
-                if query.lower() in path.lower() and (
+                path_match = query.lower() in path.lower()
+                text_match = search_in_summary and (
+                    (route.summary and query.lower() in route.summary.lower())
+                    or (
+                        route.description and query.lower() in route.description.lower()
+                    )
+                )
+                if (path_match or text_match) and (
                     method is None or method.upper() in methods
                 ):
                     if path in route_map:
