@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
-from fastapi.routing import _DefaultLifespan
+from fastapi.routing import APIRoute, _DefaultLifespan, _IncludedRouter
 from fastmcp import FastMCP
 from fastmcp.utilities.lifespan import combine_lifespans
 
@@ -17,8 +18,20 @@ class FastAPIInspect:
         self.mount_path = mount_path
 
         @self.mcp.tool()
-        async def hello() -> str:
-            return "world"
+        async def show_all_routes() -> str:
+            routes: dict[str, set[str]] = {}
+            for route in self.app.routes:
+                if isinstance(route, APIRoute):
+                    routes.setdefault(route.path, set()).update(route.methods)
+                elif isinstance(route, _IncludedRouter):
+                    for ctx in route.effective_route_contexts():
+                        if isinstance(ctx.original_route, APIRoute):
+                            routes.setdefault(ctx.path, set()).update(ctx.methods)
+            result = [
+                {"path": path, "methods": sorted(methods)}
+                for path, methods in sorted(routes.items())
+            ]
+            return json.dumps(result, indent=2)
 
         mcp_asgi_app = self.mcp.http_app(path="/")
 
