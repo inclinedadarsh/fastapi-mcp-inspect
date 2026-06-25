@@ -361,6 +361,35 @@ class FastAPIInspect:
                 header += f" with tags: {', '.join(tags)}"
             return header + "\n\n" + "\n".join(lines)
 
+        @self.mcp.tool()
+        async def get_schema_definition(schema_name: str) -> str:
+            """Return the full field-level definition of a Pydantic schema.
+
+            Args:
+                schema_name: Name of the schema/model to look up (case-insensitive).
+            """
+            all_schemas: dict[str, type[BaseModel]] = {}
+            for _path, _methods, route in _get_api_routes(self.app):
+                req_model = None
+                if route.body_field is not None:
+                    req_model = getattr(route.body_field.field_info, "annotation", None)
+                resp_model = route.response_model
+                schemas = _collect_referenced_schemas(req_model, resp_model)
+                all_schemas.update(schemas)
+
+            if schema_name in all_schemas:
+                return _get_schema_text(all_schemas[schema_name])
+
+            for name, model in all_schemas.items():
+                if name.lower() == schema_name.lower():
+                    return _get_schema_text(model)
+
+            available = ", ".join(sorted(all_schemas))
+            msg = f"Schema '{schema_name}' not found."
+            if available:
+                msg += f" Available schemas: {available}"
+            return msg
+
         mcp_asgi_app = self.mcp.http_app(path="/")
 
         if isinstance(app.router.lifespan_context, _DefaultLifespan):
