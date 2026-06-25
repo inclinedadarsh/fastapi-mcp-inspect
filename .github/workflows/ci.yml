@@ -21,9 +21,14 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     permissions:
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
