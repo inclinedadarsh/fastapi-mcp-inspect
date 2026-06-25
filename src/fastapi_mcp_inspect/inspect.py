@@ -281,6 +281,21 @@ class FastAPIInspect:
             return "\n".join(lines)
 
         @self.mcp.tool()
+        async def list_all_tags() -> str:
+            """List all unique tags used across API routes with route counts."""
+            tag_counts: dict[str, int] = {}
+            for _path, _methods, route in _get_api_routes(self.app):
+                for tag in route.tags:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            if not tag_counts:
+                return "No tags found on any route."
+            lines = []
+            for tag in sorted(tag_counts):
+                count = tag_counts[tag]
+                lines.append(f"  {tag} ({count} route{'s' if count != 1 else ''})")
+            return "Tags:\n" + "\n".join(lines)
+
+        @self.mcp.tool()
         async def search_routes(
             query: str,
             method: str | None = None,
