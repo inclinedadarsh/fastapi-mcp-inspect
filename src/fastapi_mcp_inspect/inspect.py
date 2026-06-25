@@ -3,18 +3,28 @@ from __future__ import annotations
 import types as py_types
 from typing import TYPE_CHECKING, Annotated, Any, Union, get_args, get_origin
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from fastapi import FastAPI
+
 from fastapi.routing import APIRoute, _DefaultLifespan, _IncludedRouter
 from fastmcp import FastMCP
 from fastmcp.utilities.lifespan import combine_lifespans
 from pydantic import BaseModel
 
-if TYPE_CHECKING:
-    from fastapi import FastAPI
 
+def _get_api_routes(
+    app: FastAPI,
+) -> Generator[tuple[str, set[str], APIRoute]]:
+    """Yield (path, methods, route) tuples for every API route in the app.
 
-def _get_api_routes(app):
+    Handles both direct APIRoute instances and routes nested inside
+    _IncludedRouter (from FastAPI sub-mounting).
+    """
     for route in app.routes:
         if isinstance(route, APIRoute):
+            assert route.methods is not None
             yield route.path, route.methods, route
         elif isinstance(route, _IncludedRouter):
             for ctx in route.effective_route_contexts():
@@ -23,6 +33,11 @@ def _get_api_routes(app):
 
 
 def _format_type(tp) -> str:
+    """Convert a Python type annotation into a human-readable string.
+
+    Handles Annotated, Union, list, dict, None, Any, and common primitives.
+    Falls back to __name__ for unrecognized types.
+    """
     origin = get_origin(tp)
     args = get_args(tp)
 
@@ -70,6 +85,14 @@ def _format_type(tp) -> str:
 
 
 def _get_schema_text(model: type[BaseModel]) -> str:
+    """Render a Pydantic model as a human-readable schema block.
+
+    Example:
+        Item {
+          name: string
+          price: number
+        }
+    """
     lines = [model.__name__, "{"]
     for name, field in model.model_fields.items():
         tp = field.annotation
@@ -80,6 +103,11 @@ def _get_schema_text(model: type[BaseModel]) -> str:
 
 
 def _collect_referenced_schemas(*models) -> dict[str, type[BaseModel]]:
+    """Walk Pydantic model fields to collect all referenced schemas.
+
+    Recursively follows Annotated, Union, list, and dict types to find
+    nested BaseModel classes. Returns a deduplicated name-to-model map.
+    """
     collected: dict[str, type[BaseModel]] = {}
 
     def _walk(tp):
@@ -121,13 +149,31 @@ def _collect_referenced_schemas(*models) -> dict[str, type[BaseModel]]:
 
 
 class FastAPIInspect:
+    """Mount an MCP server onto a FastAPI app for LLM-powered route inspection.
+
+    Registers tools that let AI agents list routes, view endpoint details,
+    and search endpoints at runtime.
+
+    Usage:
+        app = FastAPI()
+        FastAPIInspect(app, mount_path="/mcp")
+    """
+
     def __init__(self, app: FastAPI, mount_path: str = "/mcp"):
+        """Attach an MCP inspect server to a FastAPI application.
+
+        Args:
+            app: The FastAPI application to inspect.
+            mount_path: URL path where the MCP server will be mounted
+                (default: "/mcp").
+        """
         self.app = app
         self.mcp = FastMCP("fastapi-mcp-inspect")
         self.mount_path = mount_path
 
         @self.mcp.tool()
         async def show_all_routes() -> str:
+            """List every registered API route with its HTTP methods."""
             routes: dict[str, set[str]] = {}
             for path, methods, _ in _get_api_routes(self.app):
                 routes.setdefault(path, set()).update(methods)
@@ -140,6 +186,12 @@ class FastAPIInspect:
 
         @self.mcp.tool()
         async def show_endpoint_details(method: str, endpoint: str) -> str:
+            """Show request/response schemas and metadata for a specific endpoint.
+
+            Args:
+                method: HTTP method (e.g. GET, POST).
+                endpoint: URL path of the endpoint.
+            """
             method_upper = method.upper()
             matched = None
             for path, methods, route in _get_api_routes(self.app):
@@ -214,6 +266,12 @@ class FastAPIInspect:
 
         @self.mcp.tool()
         async def search_routes(query: str, method: str | None = None) -> str:
+            """Search for routes by path and optionally filter by HTTP method.
+
+            Args:
+                query: Substring to match against route paths (case-insensitive).
+                method: Optional HTTP method filter (e.g. GET, POST).
+            """
             routes: dict[str, set[str]] = {}
             for path, methods, _ in _get_api_routes(self.app):
                 if query.lower() in path.lower() and (

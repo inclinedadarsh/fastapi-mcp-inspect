@@ -7,13 +7,22 @@ authors = [
     { name = "Adarsh Dubey", email = "dubeyadarshmain@gmail.com" }
 ]
 requires-python = ">=3.11"
+keywords = ["fastapi", "mcp", "ai", "inspect", "llm"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+]
 dependencies = [
     "fastapi>=0.138.0",
     "fastmcp>=3.4.2",
 ]
 
-[project.scripts]
-fastapi-mcp-inspect = "fastapi_mcp_inspect:main"
+[project.urls]
+Homepage = "https://github.com/inclinedadarsh/fastapi-mcp-inspect"
+Repository = "https://github.com/inclinedadarsh/fastapi-mcp-inspect"
+Issues = "https://github.com/inclinedadarsh/fastapi-mcp-inspect/issues"
 
 [build-system]
 requires = ["uv_build>=0.11.16,<0.12.0"]
