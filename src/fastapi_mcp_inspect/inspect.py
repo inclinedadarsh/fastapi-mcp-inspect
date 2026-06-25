@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from fastapi.routing import APIRoute, _DefaultLifespan, _IncludedRouter
@@ -27,11 +26,12 @@ class FastAPIInspect:
                     for ctx in route.effective_route_contexts():
                         if isinstance(ctx.original_route, APIRoute):
                             routes.setdefault(ctx.path, set()).update(ctx.methods)
-            result = [
-                {"path": path, "methods": sorted(methods)}
-                for path, methods in sorted(routes.items())
-            ]
-            return json.dumps(result, indent=2)
+            lines = []
+            for path, methods in sorted(routes.items()):
+                methods_str = ", ".join(sorted(methods))
+                lines.append(f"---\nROUTE: {path}\nMETHODS: {methods_str}")
+            total = len(routes)
+            return f"Total available routes: {total}\n\n" + "\n".join(lines)
 
         mcp_asgi_app = self.mcp.http_app(path="/")
 
