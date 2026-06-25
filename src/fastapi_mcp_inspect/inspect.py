@@ -174,14 +174,30 @@ class FastAPIInspect:
         @self.mcp.tool()
         async def show_all_routes() -> str:
             """List every registered API route with its HTTP methods."""
-            routes: dict[str, set[str]] = {}
-            for path, methods, _ in _get_api_routes(self.app):
-                routes.setdefault(path, set()).update(methods)
+            route_map: dict[str, tuple[set[str], APIRoute]] = {}
+            for path, methods, route in _get_api_routes(self.app):
+                if path in route_map:
+                    route_map[path][0].update(methods)
+                else:
+                    route_map[path] = (methods, route)
             lines = []
-            for path, methods in sorted(routes.items()):
+            for path, (methods, route) in sorted(route_map.items()):
                 methods_str = ", ".join(sorted(methods))
-                lines.append(f"---\nROUTE: {path}\nMETHODS: {methods_str}")
-            total = len(routes)
+                lines.append("---")
+                lines.append(f"ROUTE: {path}")
+                lines.append(f"METHODS: {methods_str}")
+                if route.summary:
+                    lines.append(f"SUMMARY: {route.summary}")
+                if route.description:
+                    desc = route.description.strip()
+                    if desc:
+                        desc_lines = desc.split("\n")
+                        lines.append(f"DESCRIPTION: {desc_lines[0].strip()}")
+                        for line in desc_lines[1:]:
+                            stripped = line.strip()
+                            if stripped:
+                                lines.append(f"  {stripped}")
+            total = len(route_map)
             return f"Total available routes: {total}\n\n" + "\n".join(lines)
 
         @self.mcp.tool()
@@ -272,22 +288,38 @@ class FastAPIInspect:
                 query: Substring to match against route paths (case-insensitive).
                 method: Optional HTTP method filter (e.g. GET, POST).
             """
-            routes: dict[str, set[str]] = {}
-            for path, methods, _ in _get_api_routes(self.app):
+            route_map: dict[str, tuple[set[str], APIRoute]] = {}
+            for path, methods, route in _get_api_routes(self.app):
                 if query.lower() in path.lower() and (
                     method is None or method.upper() in methods
                 ):
-                    routes.setdefault(path, set()).update(methods)
-            if not routes:
+                    if path in route_map:
+                        route_map[path][0].update(methods)
+                    else:
+                        route_map[path] = (methods, route)
+            if not route_map:
                 msg = f"No routes found matching query: {query}"
                 if method is not None:
                     msg += f" with method: {method.upper()}"
                 return msg
             lines = []
-            for path, methods in sorted(routes.items()):
+            for path, (methods, route) in sorted(route_map.items()):
                 methods_str = ", ".join(sorted(methods))
-                lines.append(f"---\nROUTE: {path}\nMETHODS: {methods_str}")
-            total = len(routes)
+                lines.append("---")
+                lines.append(f"ROUTE: {path}")
+                lines.append(f"METHODS: {methods_str}")
+                if route.summary:
+                    lines.append(f"SUMMARY: {route.summary}")
+                if route.description:
+                    desc = route.description.strip()
+                    if desc:
+                        desc_lines = desc.split("\n")
+                        lines.append(f"DESCRIPTION: {desc_lines[0].strip()}")
+                        for line in desc_lines[1:]:
+                            stripped = line.strip()
+                            if stripped:
+                                lines.append(f"  {stripped}")
+            total = len(route_map)
             header = f"Found {total} route(s) matching query: {query}"
             return header + "\n\n" + "\n".join(lines)
 
