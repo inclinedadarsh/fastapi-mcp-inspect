@@ -300,6 +300,7 @@ class FastAPIInspect:
             query: str,
             method: str | None = None,
             search_in_summary: bool = False,
+            tags: list[str] | None = None,
         ) -> str:
             """Search for routes by path and optionally filter by HTTP method.
 
@@ -308,6 +309,8 @@ class FastAPIInspect:
                 method: Optional HTTP method filter (e.g. GET, POST).
                 search_in_summary: When True, also search in endpoint summaries
                     and descriptions.
+                tags: Optional list of tags to filter by (OR logic — matches
+                    routes that have any of the given tags).
             """
             route_map: dict[str, tuple[set[str], APIRoute]] = {}
             for path, methods, route in _get_api_routes(self.app):
@@ -318,8 +321,11 @@ class FastAPIInspect:
                         route.description and query.lower() in route.description.lower()
                     )
                 )
-                if (path_match or text_match) and (
-                    method is None or method.upper() in methods
+                tag_match = tags is None or any(tag in route.tags for tag in tags)
+                if (
+                    (path_match or text_match)
+                    and (method is None or method.upper() in methods)
+                    and tag_match
                 ):
                     if path in route_map:
                         route_map[path][0].update(methods)
@@ -329,6 +335,8 @@ class FastAPIInspect:
                 msg = f"No routes found matching query: {query}"
                 if method is not None:
                     msg += f" with method: {method.upper()}"
+                if tags is not None:
+                    msg += f" with tags: {', '.join(tags)}"
                 return msg
             lines = []
             for path, (methods, route) in sorted(route_map.items()):
@@ -349,6 +357,8 @@ class FastAPIInspect:
                                 lines.append(f"  {stripped}")
             total = len(route_map)
             header = f"Found {total} route(s) matching query: {query}"
+            if tags is not None:
+                header += f" with tags: {', '.join(tags)}"
             return header + "\n\n" + "\n".join(lines)
 
         mcp_asgi_app = self.mcp.http_app(path="/")
