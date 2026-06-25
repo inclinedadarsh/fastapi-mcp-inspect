@@ -212,6 +212,27 @@ class FastAPIInspect:
 
             return "\n".join(lines)
 
+        @self.mcp.tool()
+        async def search_routes(query: str, method: str | None = None) -> str:
+            routes: dict[str, set[str]] = {}
+            for path, methods, _ in _get_api_routes(self.app):
+                if query.lower() in path.lower() and (
+                    method is None or method.upper() in methods
+                ):
+                    routes.setdefault(path, set()).update(methods)
+            if not routes:
+                msg = f"No routes found matching query: {query}"
+                if method is not None:
+                    msg += f" with method: {method.upper()}"
+                return msg
+            lines = []
+            for path, methods in sorted(routes.items()):
+                methods_str = ", ".join(sorted(methods))
+                lines.append(f"---\nROUTE: {path}\nMETHODS: {methods_str}")
+            total = len(routes)
+            header = f"Found {total} route(s) matching query: {query}"
+            return header + "\n\n" + "\n".join(lines)
+
         mcp_asgi_app = self.mcp.http_app(path="/")
 
         if isinstance(app.router.lifespan_context, _DefaultLifespan):
