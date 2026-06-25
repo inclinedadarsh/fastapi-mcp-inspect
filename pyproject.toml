@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-mcp-inspect"
-version = "0.2.1"
+version = "0.2.2"
 description = "Simple tool which mounts your fastapi application and exposes an mcp endpoint for AI agents to inspect your fastapi server."
 readme = "README.md"
 authors = [

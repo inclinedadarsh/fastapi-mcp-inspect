@@ -16,20 +16,24 @@ from pydantic import BaseModel
 
 def _get_api_routes(
     app: FastAPI,
-) -> Generator[tuple[str, set[str], APIRoute]]:
-    """Yield (path, methods, route) tuples for every API route in the app.
+) -> Generator[tuple[str, set[str], APIRoute, list[str]]]:
+    """Yield (path, methods, route, tags) tuples for every API route in the app.
 
     Handles both direct APIRoute instances and routes nested inside
     _IncludedRouter (from FastAPI sub-mounting).
+
+    The tags list includes both route-level tags and any tags inherited from
+    APIRouter.include_router(...) calls, matching what FastAPI uses for
+    OpenAPI generation.
     """
     for route in app.routes:
         if isinstance(route, APIRoute):
             assert route.methods is not None
-            yield route.path, route.methods, route
+            yield route.path, route.methods, route, route.tags
         elif isinstance(route, _IncludedRouter):
             for ctx in route.effective_route_contexts():
                 if isinstance(ctx.original_route, APIRoute):
-                    yield ctx.path, ctx.methods, ctx.original_route
+                    yield ctx.path, ctx.methods, ctx.original_route, ctx.tags
 
 
 def _format_type(tp) -> str:
@@ -175,7 +179,7 @@ class FastAPIInspect:
         async def show_all_routes() -> str:
             """List every registered API route with its HTTP methods."""
             route_map: dict[str, tuple[set[str], APIRoute]] = {}
-            for path, methods, route in _get_api_routes(self.app):
+            for path, methods, route, _tags in _get_api_routes(self.app):
                 if path in route_map:
                     route_map[path][0].update(methods)
                 else:
@@ -210,7 +214,7 @@ class FastAPIInspect:
             """
             method_upper = method.upper()
             matched = None
-            for path, methods, route in _get_api_routes(self.app):
+            for path, methods, route, _tags in _get_api_routes(self.app):
                 if path == endpoint and method_upper in methods:
                     matched = (path, methods, route)
                     break
@@ -284,8 +288,8 @@ class FastAPIInspect:
         async def list_all_tags() -> str:
             """List all unique tags used across API routes with route counts."""
             tag_counts: dict[str, int] = {}
-            for _path, _methods, route in _get_api_routes(self.app):
-                for tag in route.tags:
+            for _path, _methods, _route, tags in _get_api_routes(self.app):
+                for tag in tags:
                     tag_counts[tag] = tag_counts.get(tag, 0) + 1
             if not tag_counts:
                 return "No tags found on any route."
@@ -313,7 +317,7 @@ class FastAPIInspect:
                     routes that have any of the given tags).
             """
             route_map: dict[str, tuple[set[str], APIRoute]] = {}
-            for path, methods, route in _get_api_routes(self.app):
+            for path, methods, route, route_tags in _get_api_routes(self.app):
                 path_match = query.lower() in path.lower()
                 text_match = search_in_summary and (
                     (route.summary and query.lower() in route.summary.lower())
@@ -321,7 +325,7 @@ class FastAPIInspect:
                         route.description and query.lower() in route.description.lower()
                     )
                 )
-                tag_match = tags is None or any(tag in route.tags for tag in tags)
+                tag_match = tags is None or any(tag in route_tags for tag in tags)
                 if (
                     (path_match or text_match)
                     and (method is None or method.upper() in methods)
@@ -369,7 +373,7 @@ class FastAPIInspect:
                 schema_name: Name of the schema/model to look up (case-insensitive).
             """
             all_schemas: dict[str, type[BaseModel]] = {}
-            for _path, _methods, route in _get_api_routes(self.app):
+            for _path, _methods, route, _tags in _get_api_routes(self.app):
                 req_model = None
                 if route.body_field is not None:
                     req_model = getattr(route.body_field.field_info, "annotation", None)
