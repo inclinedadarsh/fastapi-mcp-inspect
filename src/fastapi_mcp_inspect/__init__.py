@@ -1,2 +1,3 @@
-def main() -> None:
-    print("Hello from fastapi-mcp-inspect!")
+from fastapi_mcp_inspect.inspect import FastAPIInspect
+
+__all__ = ["FastAPIInspect"]

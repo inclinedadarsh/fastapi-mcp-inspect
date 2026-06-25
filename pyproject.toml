@@ -7,7 +7,10 @@ authors = [
     { name = "Adarsh Dubey", email = "dubeyadarshmain@gmail.com" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "fastapi>=0.138.0",
+    "fastmcp>=3.4.2",
+]
 
 [project.scripts]
 fastapi-mcp-inspect = "fastapi_mcp_inspect:main"
